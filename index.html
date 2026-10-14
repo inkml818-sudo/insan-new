@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>SISTEM RETENTION TRAP</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: #0f1115;
+    color: #e4e6eb;
+    max-width: 760px;
+    margin: 40px auto;
+    padding: 0 20px 60px;
+  }
+  h1 { font-size: 24px; margin-bottom: 4px; }
+  p.sub { color: #8b8f98; margin-top: 0; font-size: 14px; }
+
+  .step {
+    background: #1a1d24;
+    border: 1px solid #2a2e37;
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 18px;
+  }
+  .step-title {
+    font-size: 14px; font-weight: 700; color: #4a7dff;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  .step-desc { font-size: 13px; color: #8b8f98; margin-bottom: 14px; }
+
+  label { display: block; font-size: 13px; color: #a8acb5; margin: 10px 0 6px; }
+  input[type=text], input[type=file], select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid #2a2e37;
+    background: #0f1115;
+    color: #e4e6eb;
+    font-size: 14px;
+  }
+  input[type=text]:focus, select:focus { outline: none; border-color: #4a7dff; }
+
+  .row-input { display: flex; gap: 8px; align-items: flex-end; }
+  .row-input > div { flex: 1; }
+
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    background: #4a7dff;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.secondary { background: #2a2e37; }
+  button:disabled { background: #3a3f4a; cursor: not-allowed; }
+  button:hover:not(:disabled) { filter: brightness(1.1); }
+  button.full { width: 100%; margin-top: 16px; padding: 14px; font-size: 15px; }
+
+  .file-status {
+    margin-top: 6px; font-size: 12px; color: #4ade80; display: none;
+  }
+
+  .yt-slot { margin-top: 10px; }
+  .yt-result {
+    background: #0f1115; border: 1px solid #2a2e37; border-radius: 8px;
+    padding: 10px 12px; margin-top: 8px; font-size: 12px; display: none;
+  }
+  .ok { color: #4ade80; } .fail { color: #f87171; } .warn { color: #fbbf24; } .muted { color: #6b7280; }
+
+  .status-box {
+    margin-top: 14px; font-size: 13px; color: #a8acb5; display: none;
+  }
+  .spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid #3a3f4a; border-top-color: #4a7dff;
+    border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: #2a1416; border: 1px solid #7f1d1d; color: #fca5a5;
+    padding: 10px 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; display: none;
+  }
+
+  .result-box {
+    background: #0f2a16; border: 1px solid #14532d; color: #86efac;
+    padding: 16px; border-radius: 8px; margin-top: 16px; font-size: 14px; display: none;
+  }
+  .result-box a {
+    display: inline-block; margin-top: 10px; background: #4ade80; color: #052e16;
+    padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: 700;
+  }
+
+  .voice-toggle { display: flex; gap: 8px; margin-top: 8px; }
+  .voice-toggle label {
+    flex: 1; text-align: center; margin: 0; padding: 8px;
+    border: 1px solid #2a2e37; border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .voice-toggle input { display: none; }
+  .voice-toggle input:checked + span { color: #4a7dff; font-weight: 700; }
+</style>
+</head>
+<body>
+
+  <h1>SISTEM RETENTION TRAP</h1>
+  <p class="sub">Naskah → VO → Video YouTube → Hasil edit otomatis</p>
+
+  <!-- STEP 1: NASKAH -->
+  <div class="step">
+    <div class="step-title">1. Naskah</div>
+    <div class="step-desc">Wajib, dipakai untuk matching & TTS. Upload file atau tulis langsung.</div>
+
+    <div class="voice-toggle">
+      <label><input type="radio" name="naskahMode" value="upload" checked onchange="toggleNaskahMode()"><span>Upload File</span></label>
+      <label><input type="radio" name="naskahMode" value="text" onchange="toggleNaskahMode()"><span>Tulis Langsung</span></label>
+    </div>
+
+    <div id="naskahUploadBox" style="margin-top:10px;">
+      <input type="file" id="naskahFile" accept=".docx,.txt">
+      <div class="file-status" id="naskahStatus"></div>
+    </div>
+
+    <div id="naskahTextBox" style="display:none; margin-top:10px;">
+      <label>Generate dengan AI (opsional)</label>
+      <div class="row-input">
+        <div><input type="text" id="naskahTopicInput" placeholder="Topik, misal: hewan dengan kemampuan aneh"></div>
+        <button class="secondary" onclick="generateNaskahAI()">Generate</button>
+      </div>
+      <div class="step-desc" style="margin-top:4px;">
+        Butuh Gemini API key (isi di bagian Provider TTS → Gemini di Step 2).
+        Hasil generate bisa diedit dulu sebelum dipakai.
+      </div>
+      <div class="status-box" id="naskahGenStatus" style="margin-top:8px;">
+        <span class="spinner"></span><span id="naskahGenStatusText">Menulis naskah...</span>
+      </div>
+      <div class="error-box" id="naskahGenError"></div>
+
+      <label style="margin-top:14px;">Naskah</label>
+      <textarea id="naskahTextarea" rows="8"
+        placeholder="Tulis naskah di sini, atau generate otomatis lewat AI di atas..."
+        style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid #2a2e37; background:#0f1115; color:#e4e6eb; font-size:14px; font-family:inherit; resize:vertical;"></textarea>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+        <span class="muted" id="naskahCharCount" style="font-size:12px;">0 karakter</span>
+        <button class="secondary" onclick="saveNaskahText()">Gunakan Naskah Ini</button>
+      </div>
+      <div class="file-status" id="naskahTextStatus"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: VO -->
+  <div class="step">
+    <div class="step-title">2. Voice Over (opsional)</div>
+    <div class="step-desc">Kalau tidak diupload, suara akan digenerate otomatis dari naskah (TTS).</div>
+    <input type="file" id="voFile" accept=".mp3,.wav,.m4a">
+    <div class="file-status" id="voStatus"></div>
+
+    <label>Suara TTS (dipakai kalau VO tidak diupload)</label>
+    <div class="voice-toggle">
+      <label><input type="radio" name="voice" value="pria" checked><span>Pria</span></label>
+      <label><input type="radio" name="voice" value="wanita"><span>Wanita</span></label>
+    </div>
+
+    <label>Provider TTS</label>
+    <div class="voice-toggle">
+      <label><input type="radio" name="ttsProvider" value="edge" checked onchange="toggleGeminiKeyBox()"><span>Edge (gratis)</span></label>
+      <label><input type="radio" name="ttsProvider" value="gemini" onchange="toggleGeminiKeyBox()"><span>Gemini (API key)</span></label>
+    </div>
+
+    <div id="geminiKeyBox" style="display:none; margin-top:10px;">
+      <label>Gemini API Key</label>
+      <div class="row-input">
+        <div><input type="text" id="geminiKeyInput" placeholder="AIzaSy..."></div>
+        <button class="secondary" onclick="saveGeminiKey()">Simpan</button>
+      </div>
+      <div class="file-status" id="geminiKeyStatus"></div>
+
+      <label>Gaya Bicara (opsional)</label>
+      <input type="text" id="stylePromptInput"
+             placeholder="Bacakan dengan nada natural seperti narator dokumenter...">
+      <div class="step-desc" style="margin-top:4px;">
+        Kosongkan untuk pakai gaya default. Contoh: "bacakan dengan semangat",
+        "nada serius seperti berita", "santai seperti podcast".
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: VIDEO YOUTUBE -->
+  <div class="step">
+    <div class="step-title">3. Video Sumber (YouTube)</div>
+    <div class="step-desc">Download 1-3 video, satu per satu (supaya tidak kena rate-limit).</div>
+
+    <label>Cari Video (opsional)</label>
+    <div class="row-input">
+      <div><input type="text" id="ytSearchInput" placeholder="Kata kunci, misal: dokumenter hewan aneh"></div>
+      <button class="secondary" onclick="suggestKeywords()">Saran AI</button>
+      <button onclick="searchYoutube()">Cari</button>
+    </div>
+    <div class="status-box" id="ytSearchStatus" style="margin-top:8px;">
+      <span class="spinner"></span><span id="ytSearchStatusText">Mencari...</span>
+    </div>
+    <div class="error-box" id="ytSearchError"></div>
+    <div id="ytSearchResults" style="margin-top:10px;"></div>
+    <div class="step-desc" style="margin-top:6px;">
+      Video tidak valid/private? Coba kata kunci lain, atau cari manual di YouTube
+      lalu paste link-nya sendiri di slot bawah.
+    </div>
+
+    <label style="margin-top:14px;">Kena error "Sign in to confirm you're not a bot"?</label>
+    <div class="row-input">
+      <div>
+        <select id="ytCookiesSelect" onchange="saveYtCookies()"
+          style="width:100%; padding:10px 12px; border-radius:6px; border:1px solid #2a2e37; background:#0f1115; color:#e4e6eb; font-size:14px;">
+          <option value="none">Tidak pakai (default)</option>
+          <option value="chrome">Chrome</option>
+          <option value="firefox">Firefox</option>
+          <option value="edge">Edge</option>
+          <option value="brave">Brave</option>
+        </select>
+      </div>
+    </div>
+    <div class="step-desc" style="margin-top:4px;">
+      Ambil sesi login dari browser di PC ini supaya YouTube tidak menganggap
+      request sebagai bot. Pilih browser yang kamu pakai untuk login YouTube
+      (browser boleh tetap terbuka, tapi Chrome/Edge kadang perlu ditutup dulu
+      kalau gagal terbaca).
+    </div>
+    <div class="file-status" id="ytCookiesStatus"></div>
+
+    <div id="ytSlots" style="margin-top:14px;"></div>
+  </div>
+
+  <!-- STEP 4: RENDER -->
+  <div class="step">
+    <div class="step-title">4. Render</div>
+    <div class="step-desc">Setelah naskah terisi & minimal 1 video berhasil didownload.</div>
+
+    <label>Format Output</label>
+    <div class="voice-toggle">
+      <label><input type="radio" name="outputMode" value="normal" checked><span>Video Biasa (16:9)</span></label>
+      <label><input type="radio" name="outputMode" value="short"><span>Video Short (9:16 + Caption)</span></label>
+    </div>
+    <div class="step-desc" style="margin-top:6px;">
+      Video Short: crop 3:4 dengan latar blur, dan caption karaoke per-kata otomatis.
+      Cocok untuk naskah pendek (TikTok/Reels/Shorts).
+    </div>
+
+    <button class="full" id="btnRender" onclick="startRender()">Mulai Render</button>
+
+    <div class="status-box" id="renderStatus">
+      <span class="spinner"></span><span id="renderStatusText">Memproses...</span>
+    </div>
+    <div class="error-box" id="renderError"></div>
+    <div class="result-box" id="renderResult">
+      <div>✓ Render selesai!</div>
+      <a id="downloadLink" href="#">Download Video</a>
+    </div>
+  </div>
+
+<script>
+let naskahPath = null;
+let voPath = null;
+const ytResults = {};   // index -> source dict hasil download
+
+function toggleGeminiKeyBox() {
+  const isGemini = document.querySelector('input[name=ttsProvider]:checked').value === 'gemini';
+  document.getElementById('geminiKeyBox').style.display = isGemini ? 'block' : 'none';
+}
+
+async function saveGeminiKey() {
+  const key = document.getElementById('geminiKeyInput').value.trim();
+  if (!key) { alert('Isi API key dulu.'); return; }
+  try {
+    const res = await fetch('/api/config/gemini_key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ api_key: key })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Gagal simpan key'); return; }
+    const s = document.getElementById('geminiKeyStatus');
+    s.textContent = '✓ Tersimpan';
+    s.style.display = 'block';
+    document.getElementById('geminiKeyInput').value = '';
+  } catch (err) {
+    alert('Gagal menyimpan: ' + err);
+  }
+}
+
+async function checkGeminiKeyStatus() {
+  try {
+    const res = await fetch('/api/config/gemini_key/status');
+    const data = await res.json();
+    if (data.has_key) {
+      const s = document.getElementById('geminiKeyStatus');
+      s.textContent = '✓ API key sudah tersimpan sebelumnya';
+      s.style.display = 'block';
+    }
+  } catch (err) { /* diamkan, tidak kritikal */ }
+}
+checkGeminiKeyStatus();
+
+async function saveYtCookies() {
+  const browser = document.getElementById('ytCookiesSelect').value;
+  try {
+    const res = await fetch('/api/config/yt_cookies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ browser })
+    });
+    const data = await res.json();
+    const s = document.getElementById('ytCookiesStatus');
+    if (res.ok) {
+      s.textContent = browser === 'none' ? '✓ Dinonaktifkan' : `✓ Akan pakai cookies dari ${browser}`;
+      s.style.display = 'block';
+    }
+  } catch (err) { /* diamkan, tidak kritikal */ }
+}
+
+async function checkYtCookiesStatus() {
+  try {
+    const res = await fetch('/api/config/yt_cookies/status');
+    const data = await res.json();
+    if (data.browser && data.browser !== 'none') {
+      document.getElementById('ytCookiesSelect').value = data.browser;
+    }
+  } catch (err) { /* diamkan, tidak kritikal */ }
+}
+checkYtCookiesStatus();
+
+// ── Naskah: toggle mode Upload vs Tulis Langsung ──────────────────────────
+function toggleNaskahMode() {
+  const mode = document.querySelector('input[name=naskahMode]:checked').value;
+  document.getElementById('naskahUploadBox').style.display = mode === 'upload' ? 'block' : 'none';
+  document.getElementById('naskahTextBox').style.display = mode === 'text' ? 'block' : 'none';
+  // Reset path lama supaya tidak ketuker antara mode upload & tulis
+  naskahPath = null;
+  document.getElementById('naskahStatus').style.display = 'none';
+  document.getElementById('naskahTextStatus').style.display = 'none';
+}
+
+document.getElementById('naskahTextarea').addEventListener('input', (e) => {
+  document.getElementById('naskahCharCount').textContent = e.target.value.length + ' karakter';
+});
+
+async function generateNaskahAI() {
+  const topic = document.getElementById('naskahTopicInput').value.trim();
+  if (!topic) { alert('Isi topik dulu.'); return; }
+
+  document.getElementById('naskahGenError').style.display = 'none';
+  const statusEl = document.getElementById('naskahGenStatus');
+  statusEl.style.display = 'block';
+  document.getElementById('naskahGenStatusText').textContent = 'Menulis naskah...';
+
+  try {
+    const res = await fetch('/api/naskah/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic })
+    });
+    const data = await res.json();
+    statusEl.style.display = 'none';
+
+    if (!res.ok) {
+      const box = document.getElementById('naskahGenError');
+      box.textContent = data.error || 'Gagal generate naskah';
+      box.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('naskahTextarea').value = data.text;
+    document.getElementById('naskahCharCount').textContent = data.char_count + ' karakter';
+  } catch (err) {
+    statusEl.style.display = 'none';
+    const box = document.getElementById('naskahGenError');
+    box.textContent = 'Tidak bisa menghubungi server: ' + err;
+    box.style.display = 'block';
+  }
+}
+
+async function saveNaskahText() {
+  const text = document.getElementById('naskahTextarea').value.trim();
+  if (text.length < 10) { alert('Naskah terlalu pendek, tulis dulu isinya.'); return; }
+
+  try {
+    const res = await fetch('/api/naskah/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, label: 'naskah' })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Gagal menyimpan naskah'); return; }
+
+    naskahPath = data.path;
+    const s = document.getElementById('naskahTextStatus');
+    s.textContent = `✓ Naskah tersimpan (${data.char_count} karakter)`;
+    s.style.display = 'block';
+  } catch (err) {
+    alert('Gagal menyimpan naskah: ' + err);
+  }
+}
+
+// ── Upload naskah ─────────────────────────────────────────────────────────
+document.getElementById('naskahFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const path = await uploadFile(file, 'naskah');
+  if (path) {
+    naskahPath = path;
+    const s = document.getElementById('naskahStatus');
+    s.textContent = '✓ ' + file.name;
+    s.style.display = 'block';
+  }
+});
+
+// ── Upload VO ────────────────────────────────────────────────────────────
+document.getElementById('voFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const path = await uploadFile(file, 'vo');
+  if (path) {
+    voPath = path;
+    const s = document.getElementById('voStatus');
+    s.textContent = '✓ ' + file.name;
+    s.style.display = 'block';
+  }
+});
+
+async function uploadFile(file, type) {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/api/upload/' + type, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Upload gagal'); return null; }
+    return data.path;
+  } catch (err) {
+    alert('Gagal upload: ' + err);
+    return null;
+  }
+}
+
+// ── Cari Video YouTube via keyword ──────────────────────────────────────────
+async function searchYoutube() {
+  const query = document.getElementById('ytSearchInput').value.trim();
+  if (!query) { alert('Isi kata kunci dulu.'); return; }
+
+  document.getElementById('ytSearchError').style.display = 'none';
+  document.getElementById('ytSearchResults').innerHTML = '';
+  const statusEl = document.getElementById('ytSearchStatus');
+  statusEl.style.display = 'block';
+  document.getElementById('ytSearchStatusText').textContent = 'Mencari...';
+
+  try {
+    const res = await fetch('/api/search_youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, max_results: 5 })
+    });
+    const data = await res.json();
+    statusEl.style.display = 'none';
+
+    if (!res.ok) {
+      const box = document.getElementById('ytSearchError');
+      box.textContent = data.error || 'Pencarian gagal';
+      box.style.display = 'block';
+      return;
+    }
+
+    renderSearchResults(data.results);
+  } catch (err) {
+    statusEl.style.display = 'none';
+    const box = document.getElementById('ytSearchError');
+    box.textContent = 'Tidak bisa menghubungi server: ' + err;
+    box.style.display = 'block';
+  }
+}
+
+function renderSearchResults(results) {
+  const container = document.getElementById('ytSearchResults');
+  if (!results || results.length === 0) {
+    container.innerHTML = '<div class="muted" style="font-size:13px;">Tidak ada hasil.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  results.forEach((r) => {
+    const durText = r.duration ? formatDuration(r.duration) : '-';
+    const div = document.createElement('div');
+    div.className = 'yt-result';
+    div.style.display = 'block';
+    div.style.marginBottom = '8px';
+    div.innerHTML = `
+      <div style="font-size:13px; margin-bottom:4px;">${r.title}</div>
+      <div class="muted" style="font-size:12px; margin-bottom:6px;">${r.channel} — ${durText}</div>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary" style="flex:1; padding:6px;" onclick="copyLink('${r.url}')">Copy Link</button>
+        <button style="flex:1; padding:6px;" onclick="useInSlot('${r.url}')">Pakai di Slot</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function copyLink(url) {
+  navigator.clipboard.writeText(url).then(() => {
+    alert('Link disalin: ' + url);
+  }).catch(() => {
+    prompt('Salin manual link ini:', url);
+  });
+}
+
+function useInSlot(url) {
+  for (let i = 0; i < SLOT_COUNT; i++) {
+    const input = document.getElementById('ytUrl' + i);
+    if (input && !input.value.trim()) {
+      input.value = url;
+      return;
+    }
+  }
+  alert('Semua slot sudah terisi. Hapus salah satu link dulu, atau paste manual.');
+}
+
+async function suggestKeywords() {
+  const naskahTextEl = document.getElementById('naskahTextarea');
+  const context = naskahTextEl ? naskahTextEl.value.trim() : '';
+
+  const body = context ? { context } : (naskahPath ? { naskah_path: naskahPath } : null);
+  if (!body) { alert('Isi naskah dulu di Step 1, supaya AI tahu topiknya.'); return; }
+
+  document.getElementById('ytSearchError').style.display = 'none';
+  const statusEl = document.getElementById('ytSearchStatus');
+  statusEl.style.display = 'block';
+  document.getElementById('ytSearchStatusText').textContent = 'Meminta saran kata kunci...';
+
+  try {
+    const res = await fetch('/api/search_youtube/suggest_keywords', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    statusEl.style.display = 'none';
+
+    if (!res.ok) {
+      const box = document.getElementById('ytSearchError');
+      box.textContent = data.error || 'Gagal minta saran';
+      box.style.display = 'block';
+      return;
+    }
+
+    document.getElementById('ytSearchInput').value = data.keywords[0];
+  } catch (err) {
+    statusEl.style.display = 'none';
+    const box = document.getElementById('ytSearchError');
+    box.textContent = 'Tidak bisa menghubungi server: ' + err;
+    box.style.display = 'block';
+  }
+}
+
+// ── Slot download YouTube ────────────────────────────────────────────────
+const SLOT_COUNT = 3;
+const ytContainer = document.getElementById('ytSlots');
+
+for (let i = 0; i < SLOT_COUNT; i++) {
+  const div = document.createElement('div');
+  div.className = 'yt-slot';
+  div.innerHTML = `
+    <div class="row-input">
+      <div><input type="text" id="ytUrl${i}" placeholder="https://youtu.be/... (video ${i+1})"></div>
+      <button id="ytBtn${i}" class="secondary" onclick="downloadYoutube(${i})">Download</button>
+    </div>
+    <div class="status-box" id="ytStatus${i}" style="margin-top:6px;">
+      <span class="spinner"></span><span id="ytStatusText${i}">Memproses...</span>
+    </div>
+    <div class="error-box" id="ytError${i}"></div>
+    <div class="yt-result" id="ytResult${i}"></div>
+  `;
+  ytContainer.appendChild(div);
+}
+
+async function downloadYoutube(i) {
+  const url = document.getElementById('ytUrl' + i).value.trim();
+  if (!url) { showYtError(i, 'Isi URL dulu.'); return; }
+
+  document.getElementById('ytBtn' + i).disabled = true;
+  document.getElementById('ytError' + i).style.display = 'none';
+  document.getElementById('ytResult' + i).style.display = 'none';
+  const statusEl = document.getElementById('ytStatus' + i);
+  statusEl.style.display = 'block';
+  document.getElementById('ytStatusText' + i).textContent = 'Memulai download...';
+
+  try {
+    const res = await fetch('/api/download_youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, index: i })
+    });
+    const data = await res.json();
+    if (!res.ok) { showYtError(i, data.error); resetYtButton(i); return; }
+    pollYtStatus(i, data.job_id);
+  } catch (err) {
+    showYtError(i, 'Tidak bisa menghubungi server.');
+    resetYtButton(i);
+  }
+}
+
+function pollYtStatus(i, jobId) {
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/download_youtube/status/' + jobId);
+      const job = await res.json();
+      document.getElementById('ytStatusText' + i).textContent = job.message || '...';
+
+      if (job.status === 'done') {
+        clearInterval(timer);
+        document.getElementById('ytStatus' + i).style.display = 'none';
+        ytResults[i] = job.result;
+        renderYtResult(i, job.result);
+        resetYtButton(i);
+      } else if (job.status === 'error') {
+        clearInterval(timer);
+        document.getElementById('ytStatus' + i).style.display = 'none';
+        showYtError(i, job.error || 'Download gagal.');
+        resetYtButton(i);
+      }
+    } catch (err) {
+      clearInterval(timer);
+      showYtError(i, 'Koneksi terputus.');
+      resetYtButton(i);
+    }
+  }, 2000);
+}
+
+function renderYtResult(i, s) {
+  const hasSub = s.srt && s.srt.length > 0;
+  const box = document.getElementById('ytResult' + i);
+  box.style.display = 'block';
+  box.innerHTML = `
+    <span class="ok">✓ Berhasil</span> — ${s.duration.toFixed(1)}s —
+    <span class="${hasSub ? 'ok' : 'warn'}">subtitle: ${hasSub ? 'ada' : 'tidak ada'}</span>
+  `;
+}
+
+function showYtError(i, msg) {
+  const box = document.getElementById('ytError' + i);
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+
+function resetYtButton(i) {
+  document.getElementById('ytBtn' + i).disabled = false;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+async function startRender() {
+  if (!naskahPath) { alert('Upload naskah dulu.'); return; }
+
+  const sources = Object.values(ytResults);
+  if (sources.length === 0) { alert('Download minimal 1 video YouTube dulu.'); return; }
+
+  const voice = document.querySelector('input[name=voice]:checked').value;
+  const ttsProvider = document.querySelector('input[name=ttsProvider]:checked').value;
+  const stylePrompt = document.getElementById('stylePromptInput').value.trim();
+  const outputMode = document.querySelector('input[name=outputMode]:checked').value;
+
+  document.getElementById('btnRender').disabled = true;
+  document.getElementById('renderError').style.display = 'none';
+  document.getElementById('renderResult').style.display = 'none';
+  const statusEl = document.getElementById('renderStatus');
+  statusEl.style.display = 'block';
+  document.getElementById('renderStatusText').textContent = 'Memulai pipeline...';
+
+  try {
+    const res = await fetch('/api/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        naskah_path: naskahPath,
+        vo_path: voPath || '',
+        sources: sources,
+        voice: voice,
+        tts_provider: ttsProvider,
+        style_prompt: stylePrompt,
+        mode: outputMode,
+        pattern_mode: 'static',
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showRenderError(data.error);
+      document.getElementById('btnRender').disabled = false;
+      statusEl.style.display = 'none';
+      return;
+    }
+    pollRenderStatus(data.job_id);
+  } catch (err) {
+    showRenderError('Tidak bisa menghubungi server.');
+    document.getElementById('btnRender').disabled = false;
+    statusEl.style.display = 'none';
+  }
+}
+
+function pollRenderStatus(jobId) {
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch('/api/status/' + jobId);
+      const job = await res.json();
+      document.getElementById('renderStatusText').textContent =
+        `[Step ${job.step}/6] ${job.message}`;
+
+      if (job.status === 'done') {
+        clearInterval(timer);
+        document.getElementById('renderStatus').style.display = 'none';
+        document.getElementById('renderResult').style.display = 'block';
+        document.getElementById('downloadLink').href = '/api/download/' + jobId;
+        document.getElementById('btnRender').disabled = false;
+      } else if (job.status === 'error') {
+        clearInterval(timer);
+        document.getElementById('renderStatus').style.display = 'none';
+        showRenderError(job.error || 'Terjadi error saat render.');
+        document.getElementById('btnRender').disabled = false;
+      }
+    } catch (err) {
+      clearInterval(timer);
+      showRenderError('Koneksi terputus.');
+      document.getElementById('btnRender').disabled = false;
+    }
+  }, 2000);
+}
+
+function showRenderError(msg) {
+  const box = document.getElementById('renderError');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+</script>
+
+</body>
+</html>
